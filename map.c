@@ -10,25 +10,23 @@ struct bucket
 {
     char* key;
     void* value;
-    bucket* next;
+    struct bucket* next;
 };
 
 struct hashmap
 {
-    bucket** entries;
+    struct bucket** entries;
     size_t size;
 };
 
 hashmap* hashmap_new(size_t size)
 {
-    //printf("malloc hashmap\n");
     hashmap* map = malloc(sizeof(hashmap));
 
     if (map)
     {
         map->size = size;
-        //printf("malloc bucket*\n");
-        map->entries = calloc(size, sizeof(bucket*));
+        map->entries = calloc(size, sizeof(struct bucket*));
     }
 
     return map;
@@ -36,26 +34,27 @@ hashmap* hashmap_new(size_t size)
 
 void hashmap_free(hashmap* map)
 {
-    bucket* entry;
+    struct bucket* entry;
 
+    /* We have to iterate through each bucket in the hashmap to free
+       the linked list of buckets */
+
+    // Iterate through all buckets
     for (size_t i = 0; i < map->size; ++i)
     {
         entry = map->entries[i];
 
+        // Iterate through the linked list of buckets
         while (entry)
         {
-            bucket* temp = entry;
+            struct bucket* temp = entry;
             entry = entry->next;
-            //printf("freeing key: %s\n", temp->key);
             free(temp->key);
-            //printf("free hashmap entry\n");
             free(temp);
         }
     }
 
-    //printf("free hashmap entries list\n");
     free(map->entries);
-    //printf("free hashmap\n");
     free(map);
 }
 
@@ -76,14 +75,14 @@ void hashmap_put(hashmap* map, const char* key, void* value)
 {
     unsigned long index = dbj2_hash(key) % map->size;
 
-    //printf("malloc bucket\n");
-    bucket* entry = malloc(sizeof(bucket));
+    struct bucket* entry = malloc(sizeof(struct bucket));
 
     entry->key = strdup(key);
     entry->value = value;
+    // Write to the linked list for any collisions
     entry->next = map->entries[index];
 
-    //printf("mapping \"%s\" to %lu at index %lu\n", key, (unsigned long) value, index);
+    // Write to the hashmap entry set
     map->entries[index] = entry;
 }
 
@@ -91,7 +90,7 @@ char hashmap_find(hashmap* map, const char* key, void** value)
 {
     unsigned long index = dbj2_hash(key) % map->size;
 
-    bucket* entry = map->entries[index];
+    struct bucket* entry = map->entries[index];
 
     // while the keys in the buckets don't match
     while (entry && strcmp(entry->key, key) != 0)
@@ -99,6 +98,7 @@ char hashmap_find(hashmap* map, const char* key, void** value)
         entry = entry->next;
     }
 
+    // entry could be null here if all collisions expired
     if (entry)
     {
         *value = entry->value;
